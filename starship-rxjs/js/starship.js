@@ -8,12 +8,11 @@ var paintStars = function(stars){
 	});
 };
 
-
-
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
 
 document.body.appendChild(canvas);
+
 
 var windowResizeStream = Rx.Observable
 	.fromEvent(window, 'resize')
@@ -34,7 +33,7 @@ var windowResizeStream = Rx.Observable
 windowResizeStream.subscribe(function(screenDimensions){
 	canvas.height = screenDimensions.height;
 	canvas.width = screenDimensions.width;
-	console.log(screenDimensions);
+	// console.log(screenDimensions);
 });
 
 
