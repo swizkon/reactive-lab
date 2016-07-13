@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Auto scout</title>
+	<link rel="stylesheet" href="https://bootswatch.com/sandstone/bootstrap.min.css" />
+</head>
+<body>
+
+	<h1><small>A&#181;to <b>scout</b></small> Append</h1>
+	
+	<div class="container">
+		<div class="row">
+
+			<div class="authn-panel col-md-3">
+	
+				<h2>User: <small>(unknown)</small></h2>
+				
+				<div id="username">
+			  	  <input class="form-control input-lddg col-md-12" type="text" placeholder="Enter user name here..." />
+				  <p class="name">Enter user name above...</p>
+				  <p class="pwd">Enter user name above...</p>
+				</div>
+			</div>
+
+			<div class="lists-panel col-md-6" style="display:none;">
+
+				<h2>Lists</h2>
+	
+				<div id="prefetch">
+				  <input id="title" class="input-lg" type="text" placeholder="What needs to be bought?" />
+				</div>
+			</div>
+		</div>
+	
+	
+	</div>
+	
+	<script src="https://code.jquery.com/jquery-3.0.0.min.js"></script>
+	<script src="rx.all-4.0.0.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/3.1.0/firebase.js"></script>
+	<script>
+	
+	
+	var authn$ = Rx.Observable
+					.fromEvent($('#username input'), 'keyup')
+				 	.filter(e => e && e.keyCode && e.keyCode === 13)
+					.map(t => t.target.value.toLowerCase())
+					.distinctUntilChanged();
+
+	authn$.subscribe(function(username){
+		$(".authn-panel h2 small").html(username);
+		$("#username p.name").html("The user is now: " + username);
+		$('#username input').val('');
+		$('#username').slideUp();
+		$('div.lists-panel').slideDown();
+		
+		var messageListRef = fbase.database().ref('logins');
+		var newMessageRef = messageListRef.push();
+		newMessageRef.set({ 'user': username, 'timestamp': new Date().toString() });
+		// We've appended a new message to the message_list location.
+		var path = newMessageRef.toString();
+		console.log("Path: " + path);
+		// path will be something like
+		// 'https://sample-app.firebaseio.com/message_list/-IKo28nwJLH0Nc5XeFmj'
+	});
+	
+	var password$ = authn$
+					.filter(auth => auth.indexOf(':') > 0)
+					.map(auth => auth.substr(auth.indexOf(':') + 1));
+
+	password$.subscribe(function(pwd){
+		$("#username p.pwd").html("The pwd is now: " + pwd);
+	});
+	
+	
+
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyDm2b8TWuLOjvb4iy8y0oLCsSNo_hsbFpA",
+    authDomain: "autoscout-246dd.firebaseapp.com",
+    databaseURL: "https://autoscout-246dd.firebaseio.com",
+    storageBucket: "autoscout-246dd.appspot.com",
+  };
+  
+  var fbase = firebase.initializeApp(config);
+
+var authProvider = new firebase.auth.GoogleAuthProvider();
+
+var auth = firebase.auth();
+
+// console.log(auth.currentUser);
+
+firebase.auth().getRedirectResult().then(function(result) {
+  if (result.credential) {
+    // This gives you a Google Access Token. You can use it to access the Google API.
+    var token = result.credential.accessToken;
+	// alert(token);
+    // ...
+  }
+  
+
+  // The signed-in user info.
+  var user = result.user;
+  console.log("result");
+  console.log(result);
+	console.log(auth.currentUser);
+  if(!result.user){
+	  auth.signInWithRedirect(authProvider);
+	}
+}).catch(function(error) {
+  // Handle Errors here.
+  var errorCode = error.code;
+  var errorMessage = error.message;
+  // The email of the user's account used.
+  var email = error.email;
+  // The firebase.auth.AuthCredential type that was used.
+  var credential = error.credential;
+  // ...
+});
+
+/*
+fbase.auth().signInWithRedirect(authProvider).then(function(result) {
+  // This gives you a Google Access Token. You can use it to access the Google API.
+  var token = result.credential.accessToken;
+  // The signed-in user info.
+  var user = result.user;
+  alert(result);
+  // ...
+}).catch(function(error) {
+  // Handle Errors here.
+  var errorCode = error.code;
+  var errorMessage = error.message;
+  // The email of the user's account used.
+  var email = error.email;
+  // The firebase.auth.AuthCredential type that was used.
+  var credential = error.credential;
+  // ...
+});
+*/
+  
+  // Proxy between Firebase and Rx intent etc...
+  var dataChange$ = new Rx.Subject();
+  
+  dataChange$.subscribe(function(){
+	  console.log("dataChange$.subscribe");
+	  console.log(arguments);
+  });
+  
+  
+
+  var delay$ = new Rx.Observable.interval(30 * 1000);
+  /*.Subject();
+  setTimeout(function(){
+	  delay$.onNext("First");
+  }, 5000);
+  */
+  
+  
+  var docState$ = Rx.Observable.combineLatest(dataChange$, delay$, function(a,b){
+	  return {
+		  "data": a,
+		  "user": b
+	  };
+  });
+  //.flatMap();
+  
+  docState$.subscribe(function(d){
+	  console.log("docState$");
+	  console.log(d);
+  });
+  
+  
+  
+	var stream$ = Rx.Observable.create(function(observer){
+		
+    	  fbase.database().ref('users').on('child_changed', function(snapshot) {
+  		observer.onNext({
+  			"e": "users on child_changed",
+  			"d": snapshot.val()
+  		});
+    		});
+	  
+  	  fbase.database().ref('users').on('value', function(snapshot) {
+		observer.onNext({
+			"e": "users on value",
+			"d": snapshot.val()
+		});
+  		});
+	});
+	
+	stream$.subscribe(function(data){
+		console.log(data);
+	});
+	
+	  
+	  fbase.database().ref('users').on('value', function(snapshot) {
+		  	console.log('snapshot:'); // (postElement, snapshot.val());
+		  	console.log(snapshot.val()); // (postElement, snapshot.val());
+			dataChange$.onNext(snapshot.val());
+		});
+	  
+	  writeUserData("jonas2", "Jonas Jerndin", "jonas@jerndin.se");
+	  
+	  
+	  function writeUserData(userId, name, email) {
+	    fbase.database().ref('users/' + userId).update({
+	      username: name,
+	      email: email,
+			lastAccess: new Date().toString()
+	    });
+	  }
+	</script>
+</body>
+</html>
